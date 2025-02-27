@@ -1,0 +1,130 @@
+{
+  "machine_types": [
+    "Motor",
+    "Independent Bearing"
+  ],
+  "configurations": {
+    "Direct/Close Coupled": {
+      "description": "Motor shaft and fan shaft connected without intermediary coupling, ensuring highly efficient power transfer."
+    },
+    "Belt Driven": {
+      "description": "Motor and fan connected by belts and pulleys, allowing speed adjustments and easier maintenance access."
+    }
+  },
+  "sensor_placement": {
+    "Motor": {
+      "DE": "Highest priority (typically experiences the most load and stress)",
+      "NDE": "Second priority (for motors \u2265 150 hp)"
+    },
+    "Independent Bearing": {
+      "DE": "Third priority (transfers the majority of power and experiences the highest dynamic forces)",
+      "NDE": "Fourth priority (after the drive-end bearing is monitored)"
+    },
+    "Justification for Ranking": {
+      "Load Transfer & Stress Concentration": "Prioritize components bearing the greatest load and largest horsepower.",
+      "Cost-Effectiveness": "Focus on critical bearings first for impactful data.",
+      "Broad Applicability": "Applicable to any rotating machinery with bearings."
+    }
+  },
+  "installation_methods": {
+    "Threaded Stud Mount (Drill & Tap)": {
+      "recommendedFor": "Permanent installations",
+      "requirements": "Mounting surface must be at least \u00bd\" thick"
+    },
+    "Adhesive": {
+      "recommendedFor": "Permanent installations",
+      "options": {
+        "Direct Mount": "For clean, flat surfaces",
+        "Epoxy-Mounting Adapter": "For curved or uneven surfaces"
+      }
+    },
+    "High-Strength Magnet": {
+      "notRecommended": true,
+      "reason": "Can shift or 'walk' over time, causing inaccurate readings."
+    }
+  },
+  "images": {
+    "Drill & Tap installation - steps": [
+      {
+        "id": 0,
+        "filename": "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.2n8hbictzvg.jpg",
+        "caption": "Two vibration sensors are installed on a large piece of industrial machinery. The sensors are mounte..."
+      },
+      {
+        "id": 1,
+        "filename": "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.6lr2lt73t04n.jpg",
+        "caption": "The image shows a centrifugal fan housing with the motor mounted on the side. The fan housing has a ..."
+      },
+      {
+        "id": 2,
+        "filename": "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.6rzrpubt0i5j.jpg",
+        "caption": "A technician wearing safety glasses uses a flashlight to inspect a hole in a metal surface. The hole..."
+      },
+      {
+        "id": 3,
+        "filename": "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.cz2aqqk57l6e.jpg",
+        "caption": "A technician uses a drill to create a pilot hole for a sensor in a yellow machine. The sensor will b..."
+      }
+    ],
+    "Adhesive Mount Installation - steps": [
+      {
+        "id": 4,
+        "filename": "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.f7y4f33869jw.jpg",
+        "caption": "Applying adhesive to the back of the mounting plate...."
+      },
+      {
+        "id": 5,
+        "filename": "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.gq3tl7h6ekxl.jpg",
+        "caption": "The image shows a section of a large industrial machine. There is a blue housing with a large round ..."
+      },
+      {
+        "id": 6,
+        "filename": "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.imw6npqb9mbt.jpg",
+        "caption": "The image shows an encoder attached to a rotating shaft. The encoder is used to measure the speed an..."
+      },
+      {
+        "id": 7,
+        "filename": "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.j9zpqei17lf2.jpg",
+        "caption": "The image shows a technician installing an adhesive mount on an electric motor. The motor is mounted..."
+      },
+      {
+        "id": 8,
+        "filename": "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.jvrikm6jr8cn.jpg",
+        "caption": "The image shows a centrifugal fan unit. The fan unit is mounted on a steel platform and has a blue h..."
+      },
+      {
+        "id": 9,
+        "filename": "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.oii21q7a0sh4.jpg",
+        "caption": "A schematic of a motor with two bearings, labeled \"belt-side bearing\" and \"fan-side bearing\". The mo..."
+      },
+      {
+        "id": 10,
+        "filename": "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.psd2ci67xg6x.jpg",
+        "caption": "Two blue bearing housings are mounted to a rotating shaft. Each housing has a grease fitting and a s..."
+      },
+      {
+        "id": 12,
+        "filename": "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.seh4nr1xvd0j.jpg",
+        "caption": "An MTS Temposonics sensor is attached to a gray metal machine surface using an epoxy-mounting adapte..."
+      },
+      {
+        "id": 13,
+        "filename": "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.t0c3ao4pcqvh.jpg",
+        "caption": "The image shows a ProAxon sensor mounted to the side of a red machine using an epoxy-mounting adapte..."
+      },
+      {
+        "id": 14,
+        "filename": "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.v6z5r82ijyz6.jpg",
+        "caption": "An industrial technician sprays adhesive onto a machine surface in preparation for sensor installati..."
+      }
+    ]
+  },
+  "title": "Sensor Placement 2.25.2025",
+  "source_url": "https://docs.google.com/document/d/1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU/edit",
+  "processed_date": "2025-02-27T01:00:53.559824",
+  "_metadata": {
+    "id": "doc_6535065d_20250227",
+    "created_at": "2025-02-27T01:02:05.822222",
+    "version": "1.0"
+  }
+}
