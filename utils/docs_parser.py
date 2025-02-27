@@ -106,27 +106,12 @@ class DocParser:
                     if 'paragraph' in element:
                         paragraph = element['paragraph']
                         
-                        # Check if heading
-                        is_heading = False
-                        heading_level = 0
-                        
-                        if 'paragraphStyle' in paragraph and 'namedStyleType' in paragraph['paragraphStyle']:
-                            style = paragraph['paragraphStyle']['namedStyleType']
-                            if 'HEADING' in style:
-                                is_heading = True
-                                heading_level = int(style.replace('HEADING_', ''))
-                        
                         # Extract text from paragraph
                         para_text = ""
                         if 'elements' in paragraph:
                             for text_element in paragraph['elements']:
                                 if 'textRun' in text_element:
                                     para_text += text_element['textRun'].get('content', '')
-                                
-                                # Check for inline image
-                                if 'inlineObjectElement' in text_element:
-                                    obj_id = text_element['inlineObjectElement']['inlineObjectId']
-                                    # Process this later when we handle inline objects
                         
                         # Handle section divisions with asterisks
                         if re.match(r'\*{10,}', para_text.strip()):
@@ -135,14 +120,24 @@ class DocParser:
                                 elements.append({
                                     'type': 'text',
                                     'content': current_text.strip(),
-                                    'section': current_section
+                                    'section': current_section,
+                                    'section_marker': 'end'  # Mark as section end
                                 })
                                 current_text = ""
                             
-                            # Reset section tracking
-                            section_stack = []
+                            # Add a special section divider element
+                            elements.append({
+                                'type': 'section_divider',
+                                'section': current_section
+                            })
+                            
+                            # Reset section tracking for the next major section
                             continue
                         
+                        # Determine if the paragraph is a heading
+                        is_heading = 'paragraphStyle' in paragraph and 'namedStyleType' in paragraph['paragraphStyle'] and paragraph['paragraphStyle']['namedStyleType'].startswith('HEADING_')
+                        heading_level = int(paragraph['paragraphStyle']['namedStyleType'].split('_')[-1]) if is_heading else None
+
                         # Process headings to track document structure
                         if is_heading:
                             # If we have accumulated text, add it to elements

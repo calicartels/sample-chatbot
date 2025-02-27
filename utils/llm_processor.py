@@ -31,49 +31,87 @@ class LLMProcessor:
                 print(f"⚠️ Multimodal model initialization failed: {e}")
                 print("⚠️ Image captioning will use section context instead of vision analysis")
     
+
     def analyze_document_structure(self, document_elements):
         """
         Analyze document elements to identify structure and relationships.
-        
-        Args:
-            document_elements (list): List of document elements extracted from the parser
-            
-        Returns:
-            dict: Structured representation of the document
         """
         # Extract all text and headings to analyze the document structure
         document_text = ""
         
+        # Track sections
+        sections = []
+        current_section = ""
+        section_content = ""
+        
         for element in document_elements:
-            if element['type'] in ['text', 'heading']:
-                if element['type'] == 'heading':
-                    # Add heading markers for clearer structure
-                    level = element['level']
-                    document_text += f"\n{'#' * level} {element['content']}\n"
+            if element.get('type') == 'section_divider':
+                # Found a section divider, process completed section
+                if current_section and section_content:
+                    sections.append({
+                        "title": current_section,
+                        "content": section_content
+                    })
+                    section_content = ""
+            elif element.get('type') == 'heading':
+                # Handle heading elements
+                level = element.get('level', 1)
+                heading_text = element.get('content', '').strip()
+                
+                if level <= 2:  # Major section heading
+                    # Process previous section if exists
+                    if current_section and section_content:
+                        sections.append({
+                            "title": current_section,
+                            "content": section_content
+                        })
+                    
+                    # Start new section
+                    current_section = heading_text
+                    section_content = f"# {heading_text}\n\n"
                 else:
-                    document_text += element['content'] + "\n"
+                    # Add sub-heading to current section
+                    section_content += f"\n{'#' * level} {heading_text}\n\n"
+                    document_text += f"\n{'#' * level} {heading_text}\n"
+            elif element.get('type') == 'text':
+                # Add text to current section
+                text_content = element.get('content', '')
+                section_content += text_content + "\n\n"
+                document_text += text_content + "\n"
         
-        # Create a prompt for the LLM to analyze the document structure
+        # Add final section if not empty
+        if current_section and section_content:
+            sections.append({
+                "title": current_section,
+                "content": section_content
+            })
+        
+        # Create enhanced prompt for better structure detection
+        # Note: Double curly braces to escape them in f-string
         prompt = f"""
-        Analyze the following document content and identify the key structural elements:
+        Analyze the following document content that has {len(sections)} major sections:
         
-        1. Identify main topics and subtopics
-        2. Recognize different types of machines or configurations being described
-        3. Identify installation procedures and their steps
-        4. Note any hierarchical relationships between elements
+        1. "Sensor Placement & Ranking"
+        2. "Overview of how to install and set up sensors for the fan (or other machine)"
+        3. "Hierarchy of Sensor Placement"
+        
+        For each section, identify:
+        1. Machine configurations (Direct Coupled, Belt Driven, etc.)
+        2. Sensor placement locations and their priorities
+        3. Installation methods with their details
         
         Document content:
         ```
-        {document_text[:30000]}  # Limit to avoid token limits
+        {document_text[:30000]}
         ```
         
-        Output a JSON structure with:
-        1. Main topics
-        2. Machine configurations with descriptions
-        3. Hierarchy of sensor placements
-        4. Installation methods
-        
-        Format your response as valid JSON without any explanation or additional text.
+        Provide a structured JSON with:
+        {{
+        "machine_types": ["Motor", "Independent Bearing"],
+        "configurations": {{"Direct/Close Coupled": {{}}, "Belt Driven": {{}}}},
+        "sensor_placement": {{}},
+        "installation_methods": {{}}
+        }}
         """
         
         # Get response from LLM
@@ -92,7 +130,7 @@ class LLMProcessor:
                 "sensor_placements": [],
                 "installation_methods": []
             }
-    
+        
     def generate_image_captions(self, image_elements, document_elements):
         """
         Generate captions for images based on surrounding context.

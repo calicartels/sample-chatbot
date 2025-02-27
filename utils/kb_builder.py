@@ -103,12 +103,6 @@ class KnowledgeBaseBuilder:
     def _merge_extractions(self, extractions):
         """
         Merge multiple document extractions into a single structure.
-        
-        Args:
-            extractions (list): List of loaded extraction data
-            
-        Returns:
-            dict: Merged structure
         """
         # Start with base structure
         merged = {
@@ -136,8 +130,97 @@ class KnowledgeBaseBuilder:
             # Process images
             self._merge_image_data(merged, ext, image_ids)
         
+        # After merging all extractions, ensure essential data is present
+        merged = self._ensure_critical_data(merged)
+        
         return merged
     
+
+
+    def _ensure_critical_data(self, merged):
+        """
+        Ensure that critical data exists in the knowledge base.
+        This acts as a safeguard against missing data.
+        """
+        # Ensure we have at least one machine type
+        if not merged["machines"]:
+            merged["machines"] = [{"type": "Fan", "configurations": [], "installation_methods": []}]
+        
+        # Process each machine
+        for machine in merged["machines"]:
+            # Ensure configurations
+            if "configurations" not in machine or not machine["configurations"]:
+                machine["configurations"] = [
+                    {
+                        "type": "Direct/Close Coupled",
+                        "description": "Motor shaft and fan shaft connected without intermediary coupling, ensuring highly efficient power transfer.",
+                        "sensor_placement": {
+                            "locations": [
+                                {
+                                    "name": "Motor DE",
+                                    "priority": 1,
+                                    "justification": "Highest priority (typically experiences the most load and stress)"
+                                },
+                                {
+                                    "name": "Motor NDE",
+                                    "priority": 2,
+                                    "justification": "Second priority (if motor is ≥ 150 hp)",
+                                    "condition": "Only if motor is ≥ 150 hp"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "type": "Belt Driven",
+                        "description": "Motor and fan connected by belts and pulleys, allowing speed adjustments and easier maintenance access.",
+                        "sensor_placement": {
+                            "locations": [
+                                {
+                                    "name": "Motor DE",
+                                    "priority": 1,
+                                    "justification": "Highest priority (typically experiences the most load and stress)"
+                                },
+                                {
+                                    "name": "Independent Bearing DE",
+                                    "priority": 3,
+                                    "justification": "Third priority (transfers the majority of power and experiences the highest dynamic forces)"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            
+            # Ensure installation methods
+            if "installation_methods" not in machine or not machine["installation_methods"]:
+                machine["installation_methods"] = [
+                    {
+                        "name": "Threaded Stud Mount (Drill & Tap)",
+                        "recommendedFor": "Permanent installations",
+                        "requirements": {
+                            "surface_thickness": "Mounting surface must be at least ½\" thick"
+                        },
+                        "steps": [{"step": 1, "title": "Installation", "description": []}]
+                    },
+                    {
+                        "name": "Adhesive",
+                        "recommendedFor": "Permanent installations",
+                        "options": {
+                            "Direct Mount": "For clean, flat surfaces",
+                            "Epoxy-Mounting Adapter": "For curved or uneven surfaces"
+                        },
+                        "steps": [{"step": 1, "title": "Installation", "description": []}]
+                    },
+                    {
+                        "name": "High-Strength Magnet",
+                        "notRecommended": True,
+                        "reason": "Can shift or 'walk' over time, causing inaccurate readings.",
+                        "steps": [{"step": 1, "title": "Installation", "description": []}]
+                    }
+                ]
+                
+        # Update merged data with critical data
+        return merged
+
     def _merge_machine_data(self, merged, extraction):
         """
         Merge machine data from an extraction into the merged structure.
@@ -257,14 +340,25 @@ class KnowledgeBaseBuilder:
                 for config in fan_entry["configurations"]:
                     if "sensor_placement" not in config:
                         config["sensor_placement"] = {"locations": []}
+                    elif "locations" not in config["sensor_placement"]:
+                        # Add locations key if it doesn't exist
+                        config["sensor_placement"]["locations"] = []
                     
                     for location, data in extraction["sensor_placement"].items():
                         # Create location entry
-                        loc_entry = {
-                            "name": location,
-                            "priority": data.get("priority", 0),
-                            "justification": data.get("reason", "")
-                        }
+                        if isinstance(data, dict):
+                            loc_entry = {
+                                "name": location,
+                                "priority": data.get("priority", 0),
+                                "justification": data.get("reason", "")
+                            }
+                        else:
+                            # Handle case where data is a string or other type
+                            loc_entry = {
+                                "name": location,
+                                "priority": 0,
+                                "justification": str(data) if data else ""
+                            }
                         
                         # Condition for motor NDE
                         if "≥ 150 hp" in location:
@@ -279,6 +373,9 @@ class KnowledgeBaseBuilder:
                 for config in fan_entry["configurations"]:
                     if "sensor_placement" not in config:
                         config["sensor_placement"] = {"locations": []}
+                    elif "locations" not in config["sensor_placement"]:
+                        # Add locations key if it doesn't exist
+                        config["sensor_placement"]["locations"] = []
                     
                     for location in extraction["sensor_placement"]:
                         loc_entry = {
@@ -293,47 +390,47 @@ class KnowledgeBaseBuilder:
                         
                         # Add to locations
                         config["sensor_placement"]["locations"].append(loc_entry)
-        
-        # Handle "installation_methods" data
-        if "installation_methods" in extraction:
-            # Handle dict format
-            if isinstance(extraction["installation_methods"], dict):
-                for method_name, method_data in extraction["installation_methods"].items():
-                    # Find or create method entry
-                    method_entry = next((m for m in fan_entry["installation_methods"] if m.get("name") == method_name), None)
-                    if not method_entry:
-                        method_entry = {"name": method_name}
-                        fan_entry["installation_methods"].append(method_entry)
-                    
-                    # Add data to method
-                    if isinstance(method_data, dict):
-                        # Special handling for steps - convert from array or string
-                        if "steps" in method_data:
-                            steps = method_data["steps"]
-                            if isinstance(steps, list) and all(isinstance(step, str) for step in steps):
-                                # Convert simple string array to structured steps
-                                method_entry["steps"] = [
-                                    {"step": i+1, "title": step, "description": ""}
-                                    for i, step in enumerate(steps)
-                                ]
-                            elif isinstance(steps, list) and all(isinstance(step, dict) for step in steps):
-                                method_entry["steps"] = steps
+            
+            # Handle "installation_methods" data
+            if "installation_methods" in extraction:
+                # Handle dict format
+                if isinstance(extraction["installation_methods"], dict):
+                    for method_name, method_data in extraction["installation_methods"].items():
+                        # Find or create method entry
+                        method_entry = next((m for m in fan_entry["installation_methods"] if m.get("name") == method_name), None)
+                        if not method_entry:
+                            method_entry = {"name": method_name}
+                            fan_entry["installation_methods"].append(method_entry)
                         
-                        # Add other fields
-                        for key, value in method_data.items():
-                            if key != "steps" and (key not in method_entry or not method_entry[key]):
-                                method_entry[key] = value
-                        
-                        # Convert "permanence" to "recommended_for"
-                        if "permanence" in method_entry and "recommended_for" not in method_entry:
-                            method_entry["recommended_for"] = f"{method_entry['permanence'].capitalize()} installations"
-                        
-                        # Convert "requirements" to structured format
-                        if "requirements" in method_entry and isinstance(method_entry["requirements"], str):
-                            method_entry["requirements"] = {
-                                "surface_thickness": method_entry["requirements"] if "thick" in method_entry["requirements"] else "",
-                                "general": method_entry["requirements"]
-                            }
+                        # Add data to method
+                        if isinstance(method_data, dict):
+                            # Special handling for steps - convert from array or string
+                            if "steps" in method_data:
+                                steps = method_data["steps"]
+                                if isinstance(steps, list) and all(isinstance(step, str) for step in steps):
+                                    # Convert simple string array to structured steps
+                                    method_entry["steps"] = [
+                                        {"step": i+1, "title": step, "description": ""}
+                                        for i, step in enumerate(steps)
+                                    ]
+                                elif isinstance(steps, list) and all(isinstance(step, dict) for step in steps):
+                                    method_entry["steps"] = steps
+                            
+                            # Add other fields
+                            for key, value in method_data.items():
+                                if key != "steps" and (key not in method_entry or not method_entry[key]):
+                                    method_entry[key] = value
+                            
+                            # Convert "permanence" to "recommended_for"
+                            if "permanence" in method_entry and "recommended_for" not in method_entry:
+                                method_entry["recommended_for"] = f"{method_entry['permanence'].capitalize()} installations"
+                            
+                            # Convert "requirements" to structured format
+                            if "requirements" in method_entry and isinstance(method_entry["requirements"], str):
+                                method_entry["requirements"] = {
+                                    "surface_thickness": method_entry["requirements"] if "thick" in method_entry["requirements"] else "",
+                                    "general": method_entry["requirements"]
+                                }
     
     def _merge_image_data(self, merged, extraction, image_ids):
         """

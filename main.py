@@ -91,6 +91,16 @@ def process_document(doc_url, use_cloud=False, build_kb=True):
     print("\n🧠 Creating structured knowledge base...")
     structured_data = llm_processor.structure_document_to_json(document_structure, enhanced_images)
     
+    # Validate essential data is present
+    if not _check_essential_data(structured_data):
+        print("⚠️ Warning: Document processing did not extract all essential data.")
+        print("⚠️ The knowledge base builder will attempt to fill in missing information.")
+    
+    # Add document metadata
+    structured_data['title'] = doc_content['title']
+    structured_data['source_url'] = doc_url
+    structured_data['processed_date'] = doc_content['extracted_on']
+    
     # Add document metadata
     structured_data['title'] = doc_content['title']
     structured_data['source_url'] = doc_url
@@ -116,9 +126,18 @@ def process_document(doc_url, use_cloud=False, build_kb=True):
     
     # Step 10: Build comprehensive knowledge base (optional)
     if build_kb:
-        kb_id = kb_manager.process_document_completion(doc_id)
-        if kb_id:
-            print(f"\n💡 To view the comprehensive knowledge base, run: python main.py view {kb_id}")
+        print("\n💡 Building comprehensive knowledge base...")
+        kb_manager = KnowledgeBaseManager()
+        try:
+            kb_id = kb_manager.process_document_completion(doc_id)
+            if kb_id:
+                print(f"\n💡 To view the comprehensive knowledge base, run: python main.py view {kb_id}")
+        except AttributeError as e:
+            print(f"\n⚠️ Warning: {e}")
+            print("⚠️ Attempting alternative method...")
+            kb_id = kb_manager.build_kb(doc_id)
+            if kb_id:
+                print(f"\n💡 To view the comprehensive knowledge base, run: python main.py view {kb_id}")
     else:
         print(f"\n💡 To view this document, run: python main.py view {doc_id}")
     
@@ -184,6 +203,20 @@ def build_kb():
         print(f"\n💡 To view the comprehensive knowledge base, run: python main.py view {kb_id}")
     
     return kb_id
+
+def _check_essential_data(data):
+    """Check if structured data contains all essential components."""
+    # Check for machine types or configurations
+    has_machine_types = "machine_types" in data and data["machine_types"]
+    has_configurations = "configurations" in data and data["configurations"]
+    
+    # Check for sensor placement
+    has_sensor_placement = "sensor_placement" in data and data["sensor_placement"]
+    
+    # Check for installation methods
+    has_installation = "installation_methods" in data and data["installation_methods"]
+    
+    return has_machine_types and has_configurations and has_sensor_placement and has_installation
 
 def main():
     """Main function to parse arguments and execute commands."""
