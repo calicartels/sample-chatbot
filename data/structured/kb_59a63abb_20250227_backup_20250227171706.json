@@ -171,58 +171,6 @@
                 }
               ]
             }
-          ],
-          "videos": [
-            {
-              "id": "sensor_installation_drill_tap",
-              "title": "Sensor Installation: Drill & Tap Method",
-              "uri": "gs://proaxionsample/sample/Videos/sensor_installation_drill_tap.mp4",
-              "duration": "1:41",
-              "segments": [
-                {
-                  "start": "0:05",
-                  "end": "0:07",
-                  "title": "Materials Required",
-                  "description": "Overview of tools and materials needed for installation",
-                  "step_reference": 0
-                },
-                {
-                  "start": "0:09",
-                  "end": "0:38",
-                  "title": "Surface Preparation",
-                  "description": "Creating a pilot hole and preparing the mounting surface",
-                  "step_reference": 1
-                },
-                {
-                  "start": "0:38",
-                  "end": "0:46",
-                  "title": "Tapping the Hole",
-                  "description": "Using a thread tap to create screw threads",
-                  "step_reference": 2
-                },
-                {
-                  "start": "0:50",
-                  "end": "1:05",
-                  "title": "Applying Thread Locker",
-                  "description": "Preparing the sensor with thread locker",
-                  "step_reference": 3
-                },
-                {
-                  "start": "1:05",
-                  "end": "1:21",
-                  "title": "Applying Silicone Sealant",
-                  "description": "Adding sealant to prevent corrosion",
-                  "step_reference": 4
-                },
-                {
-                  "start": "1:24",
-                  "end": "1:41",
-                  "title": "Hand-Tightening the Sensor",
-                  "description": "Final installation of the sensor",
-                  "step_reference": 5
-                }
-              ]
-            }
           ]
         },
         {

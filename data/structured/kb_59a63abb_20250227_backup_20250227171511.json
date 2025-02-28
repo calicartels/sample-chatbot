@@ -171,58 +171,6 @@
                 }
               ]
             }
-          ],
-          "videos": [
-            {
-              "id": "sensor_installation_drill_tap",
-              "title": "Sensor Installation: Drill & Tap Method",
-              "uri": "gs://proaxionsample/sample/Videos/sensor_installation_drill_tap.mp4",
-              "duration": "1:41",
-              "segments": [
-                {
-                  "start": "0:05",
-                  "end": "0:07",
-                  "title": "Materials Required",
-                  "description": "Overview of tools and materials needed for installation",
-                  "step_reference": 0
-                },
-                {
-                  "start": "0:09",
-                  "end": "0:38",
-                  "title": "Surface Preparation",
-                  "description": "Creating a pilot hole and preparing the mounting surface",
-                  "step_reference": 1
-                },
-                {
-                  "start": "0:38",
-                  "end": "0:46",
-                  "title": "Tapping the Hole",
-                  "description": "Using a thread tap to create screw threads",
-                  "step_reference": 2
-                },
-                {
-                  "start": "0:50",
-                  "end": "1:05",
-                  "title": "Applying Thread Locker",
-                  "description": "Preparing the sensor with thread locker",
-                  "step_reference": 3
-                },
-                {
-                  "start": "1:05",
-                  "end": "1:21",
-                  "title": "Applying Silicone Sealant",
-                  "description": "Adding sealant to prevent corrosion",
-                  "step_reference": 4
-                },
-                {
-                  "start": "1:24",
-                  "end": "1:41",
-                  "title": "Hand-Tightening the Sensor",
-                  "description": "Final installation of the sensor",
-                  "step_reference": 5
-                }
-              ]
-            }
           ]
         },
         {
@@ -451,53 +399,5 @@
     "source_extractions": [
       "doc_25ca29da_20250227.json"
     ]
-  },
-  "image_associations": {
-    "center_hung_vs_overhung": [
-      "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.psd2ci67xg6x.jpg",
-      "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.oii21q7a0sh4.jpg"
-    ],
-    "direct_coupled_fan": [
-      "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.6lr2lt73t04n.jpg",
-      "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.q4g0mttrmf6r.jpg"
-    ],
-    "belt_driven_fan": [
-      "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.imw6npqb9mbt.jpg",
-      "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.t0c3ao4pcqvh.jpg"
-    ],
-    "drill_and_tap": [
-      "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.cz2aqqk57l6e.jpg",
-      "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.6rzrpubt0i5j.jpg"
-    ],
-    "epoxy_mount": [
-      "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.f7y4f33869jw.jpg",
-      "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.v6z5r82ijyz6.jpg"
-    ],
-    "sensor_installation": [
-      "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.j9zpqei17lf2.jpg",
-      "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.seh4nr1xvd0j.jpg",
-      "1k1I7_tVuTaRePPTirBd8qybUFxQlemVqsr0SFlXo4RU_inline_kix.2n8hbictzvg.jpg"
-    ]
-  },
-  "concept_explanations": {
-    "center_hung_vs_overhung": {
-      "center_hung": "Center hung fans have support bearings on both sides of the fan wheel, providing balanced support. This configuration is common in larger fans where stability is crucial.",
-      "overhung": "Overhung fans have the fan wheel mounted on one end of the shaft with support only on one side. This design is more compact but may experience more vibration."
-    },
-    "direct_coupled_fan": {
-      "description": "Direct/Close Coupled fans feature a direct connection between the motor and fan shafts without any intermediary coupling. This configuration provides high efficiency, simple design, and compact size.",
-      "key_points": "High efficiency, simple design, compact size, limited speed adjustment options",
-      "sensor_placement": "Motor DE (Drive End) - Highest priority, Motor NDE (Non-Drive End) for larger motors (>150hp), Fan shaft bearings (if accessible)"
-    },
-    "belt_driven_fan": {
-      "description": "Belt Driven fans use belts and pulleys to connect the motor and fan. This configuration allows for speed adjustments and easier maintenance access.",
-      "key_points": "Flexibility in speed control, easier maintenance due to accessibility, may require more space, belt maintenance required",
-      "sensor_placement": "Motor DE (Drive End) - Highest priority, Motor NDE (Non-Drive End) for larger motors (>150hp), Belt-Side bearing, Fan-Side bearing"
-    },
-    "installation_methods": {
-      "drill_and_tap": "The Drill and Tap method creates a threaded hole directly in the machine surface for mounting sensors. This provides the most secure and accurate connection.",
-      "epoxy_mount": "Epoxy mounting uses industrial adhesive to attach sensors to surfaces where drilling isn't possible or desired.",
-      "magnets": "Magnetic mounts provide quick temporary installation but are not recommended for permanent vibration monitoring due to potential movement."
-    }
   }
 }

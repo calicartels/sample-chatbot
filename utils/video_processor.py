@@ -1,11 +1,11 @@
 # utils/video_processor.py
 """
-Video processing utilities for working with installation videos.
+Video processing utilities for working with installation videos from Google Cloud Storage.
 """
 import os
-import subprocess
 import tempfile
-from urllib.parse import urlparse
+import urllib.parse
+from google.cloud import storage
 
 class VideoProcessor:
     """Process and serve video files for the chatbot."""
@@ -20,77 +20,44 @@ class VideoProcessor:
         # Create videos directory if it doesn't exist
         os.makedirs(self.local_video_dir, exist_ok=True)
     
-    def download_from_cloud(self, gcs_uri, local_filename=None):
-        """Download a video file from Google Cloud Storage."""
-        if not self.use_cloud:
-            raise ValueError("Storage client not initialized for cloud operations")
+    def get_gcs_signed_url(self, gcs_uri, expiration=3600):
+        """
+        Generate a signed URL for a GCS object.
         
-        # Parse the GCS URI
-        parsed_url = urlparse(gcs_uri)
-        if parsed_url.scheme != 'gs':
-            raise ValueError(f"Invalid GCS URI scheme: {parsed_url.scheme}")
-        
-        bucket_name = parsed_url.netloc
-        blob_path = parsed_url.path.lstrip('/')
-        
-        # Generate local filename if not provided
-        if not local_filename:
-            local_filename = os.path.basename(blob_path)
-        
-        # Path to save the file
-        local_path = os.path.join(self.local_video_dir, local_filename)
-        
-        # Download the file
-        bucket = self.storage_client.bucket(bucket_name)
-        blob = bucket.blob(blob_path)
-        blob.download_to_filename(local_path)
-        
-        print(f"Downloaded {gcs_uri} to {local_path}")
-        return local_path
-    
-    def extract_segment(self, video_path, start_time, end_time, output_path=None):
-        """Extract a segment from a video file."""
-        # Convert time format to seconds for ffmpeg
-        start_seconds = self._time_to_seconds(start_time)
-        end_seconds = self._time_to_seconds(end_time)
-        duration = end_seconds - start_seconds
-        
-        # Generate output path if not provided
-        if not output_path:
-            base_name = os.path.splitext(os.path.basename(video_path))[0]
-            segment_name = f"{base_name}_{start_time.replace(':', '')}_{end_time.replace(':', '')}.mp4"
-            output_path = os.path.join(self.local_video_dir, segment_name)
-        
-        # Extract the segment using ffmpeg
-        command = [
-            'ffmpeg',
-            '-i', video_path,
-            '-ss', str(start_seconds),
-            '-t', str(duration),
-            '-c:v', 'copy',
-            '-c:a', 'copy',
-            output_path
-        ]
-        
-        try:
-            subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            print(f"Extracted segment {start_time}-{end_time} to {output_path}")
-            return output_path
-        except subprocess.CalledProcessError as e:
-            print(f"Error extracting segment: {e}")
-            raise
+        Args:
+            gcs_uri (str): GCS URI (gs://bucket/path/to/object)
+            expiration (int): URL expiration time in seconds
             
-    def _time_to_seconds(self, time_str):
-        """Convert time string to seconds."""
-        parts = time_str.split(':')
-        if len(parts) == 2:
-            minutes, seconds = map(float, parts)
-            return minutes * 60 + seconds
-        elif len(parts) == 3:
-            hours, minutes, seconds = map(float, parts)
-            return hours * 3600 + minutes * 60 + seconds
-        else:
-            raise ValueError(f"Invalid time format: {time_str}")
+        Returns:
+            str: Signed URL
+        """
+        if not self.use_cloud:
+            return None
+            
+        try:
+            # Parse the GCS URI
+            parsed_url = urllib.parse.urlparse(gcs_uri)
+            if parsed_url.scheme != 'gs':
+                raise ValueError(f"Invalid GCS URI scheme: {parsed_url.scheme}")
+            
+            bucket_name = parsed_url.netloc
+            blob_path = parsed_url.path.lstrip('/')
+            
+            # Create a signed URL
+            bucket = self.storage_client.bucket(bucket_name)
+            blob = bucket.blob(blob_path)
+            
+            url = blob.generate_signed_url(
+                version="v4",
+                expiration=expiration,
+                method="GET"
+            )
+            
+            return url
+        
+        except Exception as e:
+            print(f"Error generating signed URL: {e}")
+            return None
     
     def prepare_segments_from_kb(self, knowledge_base, installation_method="Drill and Tap"):
         """Extract video segments defined in the knowledge base."""
@@ -123,22 +90,31 @@ class VideoProcessor:
             print(f"Invalid video data for installation method '{installation_method}'")
             return {}
         
-        # Download the video if using cloud storage
-        if self.use_cloud and video_uri.startswith("gs://"):
-            try:
-                local_path = self.download_from_cloud(video_uri)
-            except Exception as e:
-                print(f"Error downloading video: {e}")
-                return {}
-        else:
-            # For local development, the video should already be in the videos directory
-            local_path = os.path.join(self.local_video_dir, os.path.basename(video_uri))
-            if not os.path.exists(local_path):
-                print(f"Video file not found locally: {local_path}")
-                return {}
+        # Create signed URL for the full video
+        full_video_url = video_uri
+        if video_uri.startswith("gs://") and self.use_cloud:
+            signed_url = self.get_gcs_signed_url(video_uri)
+            if signed_url:
+                full_video_url = signed_url
         
         # Prepare segments
         segment_map = {}
+        
+        # Add the full video
+        segment_map["full"] = {
+            "title": video.get("title", "Full Installation Video"),
+            "description": "Complete installation process from start to finish",
+            "video_path": full_video_url,
+            "is_full_video": True
+        }
+        
+        # For cloud storage, we can't easily extract segments 
+        # If implementing segment extraction is critical, we would need to:
+        # 1. Download the video locally (or to memory)
+        # 2. Use ffmpeg to extract segments
+        # 3. Upload segments to a web-accessible location
+        
+        # For now, we'll just provide timestamps to skip to in the full video
         for segment in segments:
             start_time = segment.get("start")
             end_time = segment.get("end")
@@ -146,35 +122,32 @@ class VideoProcessor:
             description = segment.get("description")
             step_reference = segment.get("step_reference")
             
-            if not all([start_time, end_time, title, description]):
-                print(f"Incomplete segment data: {segment}")
+            if not all([start_time, end_time, title]):
                 continue
+                
+            segment_info = {
+                "title": title,
+                "description": description,
+                "start_time": start_time,
+                "end_time": end_time,
+                "video_path": f"{full_video_url}#t={self._time_to_seconds(start_time)},{self._time_to_seconds(end_time)}",
+                "full_video_url": full_video_url,
+                "timestamp_start": self._time_to_seconds(start_time)
+            }
             
-            # Extract segment
-            try:
-                segment_path = self.extract_segment(local_path, start_time, end_time)
-                
-                segment_info = {
-                    "title": title,
-                    "description": description,
-                    "start_time": start_time,
-                    "end_time": end_time,
-                    "duration": self._time_to_seconds(end_time) - self._time_to_seconds(start_time),
-                    "video_path": segment_path
-                }
-                
-                if step_reference:
-                    segment_map[step_reference] = segment_info
-                
-            except Exception as e:
-                print(f"Error processing segment {title}: {e}")
-        
-        # Also add the full video
-        segment_map["full"] = {
-            "title": video.get("title", "Full Installation Video"),
-            "description": "Complete installation process from start to finish",
-            "video_path": local_path,
-            "is_full_video": True
-        }
+            if step_reference:
+                segment_map[step_reference] = segment_info
         
         return segment_map
+    
+    def _time_to_seconds(self, time_str):
+        """Convert time string to seconds."""
+        parts = time_str.split(':')
+        if len(parts) == 2:
+            minutes, seconds = map(float, parts)
+            return minutes * 60 + seconds
+        elif len(parts) == 3:
+            hours, minutes, seconds = map(float, parts)
+            return hours * 3600 + minutes * 60 + seconds
+        else:
+            raise ValueError(f"Invalid time format: {time_str}")
