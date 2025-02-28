@@ -36,6 +36,7 @@ class EnhancedChatInterface:
         
         # Ensure Google project ID is set
         os.environ["GOOGLE_CLOUD_PROJECT"] = "capstone-449418"
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.join(current_dir, "credentials", "capstone-449418-38bd0569f608.json")
         
         # Initialize state
         self._initialize_state()
@@ -43,11 +44,9 @@ class EnhancedChatInterface:
         # Initialize GCS client and bot
         self._initialize_services()
         
-        # Set up layout
+        # Set up layout - creates UI elements and session state variables
         self._setup_layout()
         
-        # Process any pending actions
-        self._process_actions()
     
     def _initialize_state(self):
         """Initialize session state variables."""
@@ -221,58 +220,77 @@ class EnhancedChatInterface:
             st.sidebar.info("Run knowledge_base_update.py to add concept-to-image associations.")
             return
         
-        # Create signed URLs for all images
-        for concept, images in image_associations.items():
-            st.session_state.concept_images[concept] = []
-            for image_filename in images:
-                # Create image data
-                image_path = os.path.join(IMAGES_DIR, image_filename)
-                if os.path.exists(image_path):
-                    # Local file
-                    st.session_state.concept_images[concept].append({
-                        "filename": image_filename,
-                        "path": image_path,
-                        "url": f"file://{image_path}"  # Local file path
-                    })
-                else:
-                    # Try GCS
-                    gcs_uri = f"gs://proaxionsample/sample/Images/{image_filename}"
-                    signed_url = self._get_signed_url(gcs_uri)
-                    if signed_url:
-                        st.session_state.concept_images[concept].append({
-                            "filename": image_filename,
-                            "path": gcs_uri,
-                            "url": signed_url
-                        })
+        # Get list of available image files
+        if os.path.exists(IMAGES_DIR):
+            image_files = os.listdir(IMAGES_DIR)
+            st.sidebar.success(f"Found {len(image_files)} images in directory")
+        else:
+            st.sidebar.error(f"Images directory not found: {IMAGES_DIR}")
+            os.makedirs(IMAGES_DIR, exist_ok=True)
+            image_files = []
         
-        st.sidebar.success(f"✅ Loaded images for {len(st.session_state.concept_images)} concepts")
+        # For each concept, find all matching images
+        for concept, filenames in image_associations.items():
+            st.session_state.concept_images[concept] = []
+            for image_name in filenames:
+                # Check if any available image contains part of the filename
+                matching_images = [f for f in image_files if f.endswith('.jpg') or f.endswith('.png')]
+                for img in matching_images:
+                    image_path = os.path.join(IMAGES_DIR, img)
+                    st.session_state.concept_images[concept].append({
+                        "filename": img,
+                        "path": image_path,
+                        "url": f"file://{image_path}"
+                    })
+        
+        # Log success
+        concepts_with_images = [c for c, imgs in st.session_state.concept_images.items() if imgs]
+        if concepts_with_images:
+            st.sidebar.success(f"✅ Found images for {len(concepts_with_images)} concepts")
+        else:
+            st.sidebar.warning("No images found for any concepts")
     
-    def _get_concept_for_message(self, message):
+    def _get_concept_for_message(self, message, user_input=None):
         """Determine relevant concept for a message."""
-        # Check for orientation question
-        if re.search(r'center hung or overhung', message, re.IGNORECASE):
+        # First check user input if provided
+        if user_input:
+            user_message = user_input.lower()
+            if "belt" in user_message:
+                return "belt_driven_fan"
+            elif "direct" in user_message or "close coupled" in user_message:
+                return "direct_coupled_fan"
+            elif "independent" in user_message or "bearing" in user_message:
+                return "independent_bearing_fan"
+            elif "center hung" in user_message or "center-hung" in user_message:
+                return "center_hung_vs_overhung"
+            elif "overhung" in user_message:
+                return "center_hung_vs_overhung"
+        
+        # Original logic for bot messages
+        message = message.lower()
+        if "center hung or overhung" in message:
             return "center_hung_vs_overhung"
         
-        # Check for fan configuration
-        if re.search(r'belt driven|direct.*coupled|close.*coupled', message, re.IGNORECASE):
-            if re.search(r'belt', message, re.IGNORECASE):
-                return "belt_driven_fan"
-            else:
-                return "direct_coupled_fan"
+        if "belt driven" in message:
+            return "belt_driven_fan"
+        elif "direct" in message and "coupled" in message:
+            return "direct_coupled_fan"
+        elif "independent bearing" in message:
+            return "independent_bearing_fan"
         
         # Check for installation method question
-        if re.search(r'installation method|proceed with this method', message, re.IGNORECASE):
+        if "installation method" in message or "proceed with this method" in message:
             return "installation_methods"
         
         # Check for specific installation methods
-        if re.search(r'drill and tap|drill|tap', message, re.IGNORECASE):
+        if "drill and tap" in message or "drill" in message or "tap" in message:
             return "drill_and_tap"
         
-        if re.search(r'epoxy|adhesive', message, re.IGNORECASE):
+        if "epoxy" in message or "adhesive" in message:
             return "epoxy_mount"
         
         # Check for specific step mentions
-        if re.search(r'apply.*thread locker|apply.*silicone|tighten.*sensor', message, re.IGNORECASE):
+        if "thread locker" in message or "apply" in message and "silicone" in message or "tighten" in message and "sensor" in message:
             return "sensor_installation"
         
         return None
@@ -323,7 +341,7 @@ class EnhancedChatInterface:
         
         # Create a dropdown to select video segments
         segment_options = {f"{s.get('title', f'Segment {i}')} ({s.get('start', '0:00')}-{s.get('end', '0:00')})": i 
-                          for i, s in enumerate(segments)}
+                        for i, s in enumerate(segments)}
         
         # Default to current step segment if available
         default_idx = 0
@@ -366,8 +384,8 @@ class EnhancedChatInterface:
             """
             st.markdown(video_html, unsafe_allow_html=True)
             
-            # Fallback for browsers that don't support the #t parameter
-            st.markdown(f"Video should start at {selected_segment.get('start', '0:00')}. If not, please manually seek to this position.")
+            # Use cleaner text to indicate the video segment
+            st.markdown(f"Video segment: {selected_segment.get('start', '0:00')}-{selected_segment.get('end', 'end')}")
         else:
             st.warning("Video not available. Please check your GCS configuration.")
     
@@ -380,30 +398,41 @@ class EnhancedChatInterface:
             concept = st.session_state.current_concept
             images = st.session_state.concept_images[concept]
             
+            # Limit to only 2 most relevant images
+            images = images[:2]
+            
             if images:
                 # Show concept explanation from knowledge base
                 if st.session_state.kb_data and "concept_explanations" in st.session_state.kb_data:
                     concept_explanation = st.session_state.kb_data["concept_explanations"].get(concept, {})
                     if concept_explanation:
                         # Display concept explanation
-                        st.markdown(f"**{concept.replace('_', ' ').title()}**")
+                        concept_name = concept.replace('_', ' ').title()
+                        st.markdown(f"**{concept_name}**")
                         for key, value in concept_explanation.items():
                             if key != "images":
                                 st.markdown(f"**{key.replace('_', ' ').title()}**: {value}")
                 
-                # Display images in a grid
+                # Display images in a grid with proper captions
                 cols = st.columns(min(2, len(images)))
                 for i, image in enumerate(images):
                     with cols[i % len(cols)]:
                         try:
+                            # Generate better caption
+                            caption = concept.replace('_', ' ').title()
+                            if i == 0:
+                                caption += " - Diagram"
+                            elif i == 1:
+                                caption += " - Example"
+                            
                             # For GCS images with signed URLs
                             if image["url"].startswith("http"):
-                                st.image(image["url"], caption=image.get("filename"), use_column_width=True)
-                            # For local files, we need to load them
+                                st.image(image["url"], caption=caption, use_container_width=True)
+                            # For local files
                             elif os.path.exists(image["path"]):
                                 from PIL import Image as PILImage
                                 img = PILImage.open(image["path"])
-                                st.image(img, caption=image.get("filename"), use_column_width=True)
+                                st.image(img, caption=caption, use_container_width=True)
                             else:
                                 st.error(f"Image not found: {image['filename']}")
                         except Exception as e:
@@ -412,36 +441,7 @@ class EnhancedChatInterface:
                 st.info("No reference images available for the current topic.")
         else:
             # Show image selection
-            concept_select = st.selectbox(
-                "Select reference:",
-                options=["Select a reference"] + list(st.session_state.concept_images.keys()),
-                format_func=lambda x: x.replace("_", " ").title() if x != "Select a reference" else x
-            )
-            
-            if concept_select != "Select a reference":
-                images = st.session_state.concept_images[concept_select]
-                if images:
-                    # Display images in a grid
-                    cols = st.columns(min(2, len(images)))
-                    for i, image in enumerate(images):
-                        with cols[i % len(cols)]:
-                            try:
-                                # For GCS images with signed URLs
-                                if image["url"].startswith("http"):
-                                    st.image(image["url"], caption=image.get("filename"), use_column_width=True)
-                                # For local files, we need to load them
-                                elif os.path.exists(image["path"]):
-                                    from PIL import Image as PILImage
-                                    img = PILImage.open(image["path"])
-                                    st.image(img, caption=image.get("filename"), use_column_width=True)
-                                else:
-                                    st.error(f"Image not found: {image['filename']}")
-                            except Exception as e:
-                                st.error(f"Error displaying image: {e}")
-                else:
-                    st.info("No images available for this reference.")
-            else:
-                st.info("Select a reference to view images.")
+            st.info("Select a configuration to see reference images.")
     
     def _setup_chat_interface(self):
         """Set up the chat interface."""
@@ -459,17 +459,30 @@ class EnhancedChatInterface:
         if st.session_state.current_step is not None:
             st.write(f"**Current step: {st.session_state.current_step+1}/6**")
         
-        # Input row
-        input_col, button_col1, button_col2 = st.columns([3, 1, 1])
+        # Create a form to prevent automatic reruns
+        with st.form(key="chat_form", clear_on_submit=True):
+            # Input row
+            input_col, button_col1, button_col2 = st.columns([3, 1, 1])
+            
+            with input_col:
+                user_input = st.text_input("Type your message here:", key="form_input")
+            
+            # Submit buttons row
+            col1, col2, col3 = st.columns([1, 1, 1])
+            with col1:
+                submit = st.form_submit_button("Send")
+            with col2:
+                next_button = st.form_submit_button("Next Step →")
+            with col3:
+                reset_button = st.form_submit_button("🔄 Reset")
         
-        with input_col:
-            st.session_state.user_input = st.text_input("Type your message here:", key="msg_input")
-        
-        with button_col1:
-            st.session_state.next_step = st.button("Next Step →", key="next_step")
-        
-        with button_col2:
-            st.session_state.reset = st.button("🔄 Reset", key="reset")
+        # Process form submission
+        if submit and user_input:
+            self._handle_message(user_input)
+        elif next_button:
+            self._handle_next_step()
+        elif reset_button:
+            self._handle_reset()
     
     def _update_current_step(self):
         """Update current step from chat history."""
@@ -537,20 +550,6 @@ class EnhancedChatInterface:
                         st.session_state.current_concept = concept
                         break
         
-        # Process chat input
-        if hasattr(st.session_state, 'user_input') and st.session_state.user_input:
-            self._handle_message(st.session_state.user_input)
-            # Clear the input
-            st.session_state.user_input = ""
-        
-        # Handle "Next Step" button
-        if hasattr(st.session_state, 'next_step') and st.session_state.next_step:
-            self._handle_next_step()
-        
-        # Handle reset button
-        if hasattr(st.session_state, 'reset') and st.session_state.reset:
-            self._handle_reset()
-    
     def _handle_message(self, message):
         """Handle user message."""
         # Add user message to chat history
@@ -565,8 +564,8 @@ class EnhancedChatInterface:
         # Update current step
         self._update_current_step()
         
-        # Check for concept relevance
-        concept = self._get_concept_for_message(response)
+        # Check for concept relevance - pass both the bot response and user message
+        concept = self._get_concept_for_message(response, message)
         if concept:
             st.session_state.current_concept = concept
         

@@ -30,6 +30,8 @@ class InstallationBot:
         
         # Initialize LLM if available (for enhanced natural language understanding)
         try:
+            # Initialize Vertex AI with explicit project_id
+            vertexai.init(project="capstone-449418", location="us-central1")
             self.llm = GenerativeModel("gemini-pro")
             self.use_llm = True
             print("✓ Successfully initialized LLM for enhanced understanding")
@@ -88,7 +90,6 @@ class InstallationBot:
         
         # Save updated state
         self.state_manager.save_state(user_id, state)
-        
         return response
     
     def _get_intent_with_llm(self, message, state):
@@ -313,17 +314,46 @@ class InstallationBot:
             if state.configuration == "Direct/Close Coupled":
                 ideal_count = 3
                 
-                # Basic recommendations always include Motor DE
-                recommendations = ["Motor Drive-End (DE) - HIGHEST PRIORITY"]
+                # Create all possible recommendations
+                all_recommendations = [
+                    {"location": "Motor Drive-End (DE)", "priority": 1, "detail": "Experiences the most load and stress, making it critical for monitoring."},
+                    {"location": "Motor Non-Drive-End (NDE)", "priority": 2, "detail": "Important for motors ≥ 150 hp to get a complete vibration profile.", "condition": "motors ≥ 150 hp"},
+                    {"location": "Fan shaft bearings", "priority": 3, "detail": "Monitors the fan side if accessible.", "condition": "if accessible"},
+                    {"location": "Coupling area", "priority": 4, "detail": "Direct monitoring of the motor-to-fan connection point."}
+                ]
                 
-                # Add more recommendations based on available sensors
-                if state.sensor_count >= 2:
-                    recommendations.append("Motor Non-Drive-End (NDE) - For motors ≥ 150 hp")
+                # Prioritize based on monitoring target
+                if state.monitoring_target.lower() != "general":
+                    target = state.monitoring_target.lower()
+                    
+                    # Adjust priorities based on target
+                    for rec in all_recommendations:
+                        # Lower priorities start as higher numbers (less important)
+                        if "coupling" in target and "coupling" in rec["location"].lower():
+                            rec["priority"] = 0  # Make highest priority
+                            rec["detail"] = "Specifically chosen for coupling monitoring as requested."
+                        elif "motor" in target and "motor" in rec["location"].lower():
+                            rec["priority"] = 0 if "drive" in rec["location"].lower() else 1
+                            rec["detail"] = "Prioritized for motor monitoring as requested."
+                        elif "fan" in target and "fan" in rec["location"].lower():
+                            rec["priority"] = 0
+                            rec["detail"] = "Prioritized for fan monitoring as requested."
                 
-                if state.sensor_count >= 3:
-                    recommendations.append("Fan shaft bearings (if accessible)")
+                # Sort by adjusted priority
+                all_recommendations.sort(key=lambda x: x["priority"])
                 
-                state.recommended_placement = recommendations
+                # Select recommendations based on available sensors
+                recommendations = []
+                for i, rec in enumerate(all_recommendations):
+                    if i < state.sensor_count:
+                        location_text = rec["location"]
+                        if i == 0:
+                            location_text += " - HIGHEST PRIORITY"
+                        if "condition" in rec:
+                            location_text += f" ({rec['condition']})"
+                        recommendations.append(f"{location_text}\n   {rec['detail']}")
+                
+                state.recommended_placement = [r.split('\n')[0] for r in recommendations]
                 
                 recommendation_text = RECOMMENDATION_TEMPLATE.format(
                     configuration=state.configuration,
@@ -332,36 +362,61 @@ class InstallationBot:
                     sensor_count=state.sensor_count,
                     recommendations="\n\n".join([f"{i+1}. {rec}" for i, rec in enumerate(recommendations)])
                 )
-                return recommendation_text
                 
+                # Add specific acknowledgement if they requested a specific target
+                if state.monitoring_target.lower() != "general":
+                    recommendation_text += f"\n\nNote: These recommendations have been prioritized for monitoring the {state.monitoring_target} as you requested."
+                
+                return recommendation_text
+                    
             elif state.configuration == "Belt Driven":
-                # Similar logic for Belt Driven configuration
                 ideal_count = 4
                 
-                # Basic recommendations always include Motor DE
-                recommendations = ["Motor Drive-End (DE) - HIGHEST PRIORITY"]
-                recommendation_details = [
-                    "This bearing experiences the most load and stress, making it critical for monitoring."
+                # Create all possible recommendations
+                all_recommendations = [
+                    {"location": "Motor Drive-End (DE)", "priority": 1, "detail": "This bearing experiences the most load and stress, making it critical for monitoring."},
+                    {"location": "Motor Non-Drive-End (NDE)", "priority": 2, "detail": "Larger motors benefit from monitoring both ends for a complete vibration profile.", "condition": "For motors ≥ 150 hp"},
+                    {"location": "Belt-Side bearing", "priority": 3, "detail": "This bearing transfers power from motor to fan, critical for early fault detection."},
+                    {"location": "Fan-Side bearing", "priority": 4, "detail": "Supports fan shaft, important for complete system coverage."},
+                    {"location": "Belt/Pulley system", "priority": 5, "detail": "Directly monitors belt condition and alignment issues."}
                 ]
                 
-                # Add more recommendations based on available sensors
-                if state.sensor_count >= 2:
-                    recommendations.append("Motor Non-Drive-End (NDE) - For motors ≥ 150 hp")
-                    recommendation_details.append(
-                        "Larger motors benefit from monitoring both ends for a complete vibration profile."
-                    )
+                # Prioritize based on monitoring target
+                if state.monitoring_target.lower() != "general":
+                    target = state.monitoring_target.lower()
+                    
+                    # Adjust priorities based on target
+                    for rec in all_recommendations:
+                        if "coupling" in target or "belt" in target:
+                            if "belt" in rec["location"].lower():
+                                rec["priority"] = 0  # Make highest priority
+                                rec["detail"] = "Specifically chosen for belt/coupling monitoring as requested."
+                        elif "motor" in target and "motor" in rec["location"].lower():
+                            rec["priority"] = 0 if "drive" in rec["location"].lower() else 1
+                            rec["detail"] = "Prioritized for motor monitoring as requested."
+                        elif "fan" in target and "fan" in rec["location"].lower():
+                            rec["priority"] = 0
+                            rec["detail"] = "Prioritized for fan monitoring as requested."
+                        elif "bearing" in target and "bearing" in rec["location"].lower():
+                            rec["priority"] = 0
+                            rec["detail"] = "Prioritized for bearing monitoring as requested."
                 
-                if state.sensor_count >= 3:
-                    recommendations.append("Belt-Side bearing")
-                    recommendation_details.append(
-                        "This bearing transfers power from motor to fan, critical for early fault detection."
-                    )
+                # Sort by adjusted priority
+                all_recommendations.sort(key=lambda x: x["priority"])
                 
-                if state.sensor_count >= 4:
-                    recommendations.append("Fan-Side bearing")
-                    recommendation_details.append(
-                        "Supports fan shaft, important for complete system coverage."
-                    )
+                # Select recommendations based on available sensors
+                recommendations = []
+                recommendation_details = []
+                
+                for i, rec in enumerate(all_recommendations):
+                    if i < state.sensor_count:
+                        location_text = rec["location"]
+                        if i == 0:
+                            location_text += " - HIGHEST PRIORITY"
+                        if "condition" in rec:
+                            location_text += f" ({rec['condition']})"
+                        recommendations.append(location_text)
+                        recommendation_details.append(rec["detail"])
                 
                 state.recommended_placement = recommendations
                 
@@ -377,14 +432,23 @@ class InstallationBot:
                     sensor_count=state.sensor_count,
                     recommendations=rec_text.strip()
                 )
+                
+                # Add specific acknowledgement if they requested a specific target
+                if state.monitoring_target.lower() != "general":
+                    recommendation_text += f"\n\nNote: These recommendations have been prioritized for monitoring the {state.monitoring_target} as you requested."
+                
                 return recommendation_text
             else:
                 # Generic recommendation for other configurations
-                return f"""
-Based on your {state.configuration} configuration, I recommend placing your {state.sensor_count} sensor(s) on the most critical components for monitoring.
-
-Would you like to proceed with the installation instructions?
-"""
+                recommendation_text = f"""
+    Based on your {state.configuration} configuration, I recommend placing your {state.sensor_count} sensor(s) on the most critical components for monitoring.
+    """
+                # Add specific acknowledgement if they requested a specific target
+                if state.monitoring_target.lower() != "general":
+                    recommendation_text += f"\n\nWith focus on monitoring the {state.monitoring_target} as you requested."
+                    
+                recommendation_text += "\n\nWould you like to proceed with the installation instructions?"
+                return recommendation_text
         
         # Check if user wants to proceed with installation
         # First check intent from LLM if available
@@ -511,6 +575,12 @@ Would you like to proceed with the installation instructions?
         needs_help = False
         wants_next = False
         
+        specific_step = self._map_message_to_step(message)
+        if specific_step is not None and specific_step != state.current_step:
+            # User is asking about a different step than they're on
+            state.current_step = specific_step
+            return self._get_step_guidance(state.installation_method, specific_step)
+
         if intent and "primary_intent" in intent:
             primary_intent = intent["primary_intent"]
             wants_video = "video" in primary_intent.lower() or "show" in primary_intent.lower()
@@ -750,13 +820,36 @@ Does this help?
     
     def _format_video_reference(self, video_path):
         """Format a video reference for including in messages."""
-        # Ensure the video exists
-        if os.path.exists(video_path):
-            return f"[VIDEO: {video_path}]"
+        # Hide full URL and use a simple hyperlink text instead
+        if video_path.startswith("http") or video_path.startswith("gs://"):
+            # Use the timestamp if it's in the URL
+            if "#t=" in video_path:
+                return f"[Watch Video Segment]({video_path})"
+            else:
+                return f"[Watch Full Video]({video_path})"
+        elif os.path.exists(video_path):
+            return f"[Watch Video]({video_path})"
         else:
             print(f"Warning: Video file not found: {video_path}")
-            return f"[VIDEO NOT FOUND: {video_path}]"
-
+            return f"[Video not available]"
+    
+    def _map_message_to_step(self, message):
+        """Map a user message to a specific installation step."""
+        step_keywords = {
+            "drilling": 1, "drill": 1, "pilot hole": 1, "surface preparation": 1,
+            "tapping": 2, "tap": 2, "thread": 2, "threading": 2,
+            "thread locker": 3, "threadlocker": 3, "glue": 3, "adhesive": 3,
+            "silicone": 4, "sealant": 4, "seal": 4, "waterproofing": 4,
+            "tightening": 5, "tighten": 5, "install sensor": 5, "mounting": 5
+        }
+        
+        message = message.lower()
+        for keyword, step in step_keywords.items():
+            if keyword in message:
+                return step
+        
+        return None
+    
     def _get_step_guidance(self, method, step_number):
         """Get guidance for a specific installation step."""
         # Get steps for the selected method from knowledge base

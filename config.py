@@ -19,7 +19,7 @@ CREDENTIALS_DIR = os.path.join(BASE_DIR, "credentials")
 # Service account key (for Vertex AI, Storage, Firestore)
 SERVICE_ACCOUNT_KEY = os.environ.get(
     "GOOGLE_APPLICATION_CREDENTIALS", 
-    os.path.join(CREDENTIALS_DIR, "capstone-449418-6577c3f0fefc.json")
+    os.path.join(CREDENTIALS_DIR, "capstone-449418-38bd0569f608.json")
 )
 
 # Find OAuth client credentials (for Google Docs & Drive)
